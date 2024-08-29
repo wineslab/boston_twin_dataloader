@@ -44,7 +44,7 @@ flatbuffers==23.5.26
 folium==0.14.0
 fonttools==4.25.0
 gast==0.5.4
-GDAL==3.6.2
+# GDAL==3.6.2
 geopandas==0.14.2
 google-auth==2.27.0
 google-auth-oauthlib==1.2.0

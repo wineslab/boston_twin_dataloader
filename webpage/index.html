@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+    <style>
+        /* Make sure the body and html take up the full size of the screen */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        /* The map will fill the entire screen */
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+
+        /* Styling for the input fields and button */
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 10px 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            gap: 10px;
+            z-index: 1000; /* Ensures controls are above the map */
+        }
+
+        .controls input, .controls button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            outline: none;
+        }
+
+        .controls input {
+            width: 120px;
+        }
+
+        .controls button {
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            border: none;
+        }
+
+        .controls button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <div class="controls">
+        <input type="text" id="latitude" placeholder="Enter Latitude">
+        <input type="text" id="longitude" placeholder="Enter Longitude">
+        <button onclick="sendCoordinates()">Go to Location</button>
+    </div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        // Set initial map coordinates to Northeastern University's EXP Building
+        var initialCoordinates = [42.340082, -71.089488]; // Latitude and Longitude of EXP Building
+
+        // Initialize the map
+        var map = L.map('map').setView(initialCoordinates, 16); // Set zoom level to 16 for closer view
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Handle click event on the map
+        function onMapClick(e) {
+            var lat = e.latlng.lat;
+            var lon = e.latlng.lng;
+            var altitude = 0;  // Assuming altitude is not available
+
+            // Show clicked coordinates in the input fields
+            document.getElementById('latitude').value = lat.toFixed(6);
+            document.getElementById('longitude').value = lon.toFixed(6);
+
+            console.log(`Clicked at Latitude: ${lat}, Longitude: ${lon}, Altitude: ${altitude}`);
+            sendToServer(lat, lon, altitude);
+        }
+
+        map.on('click', onMapClick);
+
+        // Send coordinates to Flask server
+        function sendToServer(lat, lon, altitude) {
+            fetch('/get_coordinates', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ latitude: lat, longitude: lon, altitude: altitude })
+            })
+            .then(response => response.json())
+            .then(data => console.log('Success:', data))
+            .catch((error) => console.error('Error:', error));
+        }
+
+        // Send coordinates from input fields and move the map to the location
+        function sendCoordinates() {
+            var lat = parseFloat(document.getElementById('latitude').value);
+            var lon = parseFloat(document.getElementById('longitude').value);
+            var altitude = 0;  // You can modify this to accept altitude from the user
+            if (!isNaN(lat) && !isNaN(lon)) {  // Only proceed if both latitude and longitude are valid numbers
+                map.setView([lat, lon], 16);  // Move map to entered coordinates
+                sendToServer(lat, lon, altitude);
+            } else {
+                alert("Please enter valid numbers for both latitude and longitude.");
+            }
+        }
+    </script>
+</body>
+</html>
