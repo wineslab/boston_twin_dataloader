@@ -19,6 +19,11 @@ from .BostonAntennas import BostonAntennas
 from .BostonModel import BostonModel
 
 
+import rasterio
+from rasterio.features import rasterize
+from shapely.geometry import box
+
+
 class BostonTwin:
     """BostonTwin Class
 
@@ -209,7 +214,7 @@ class BostonTwin:
             self._load_mi_scene()
 
         if load_geodf:
-            self.current_scene_gdf = self._load_scene_geodf(scene_name)
+            self.current_scene_gdf = self._load_scene_geodf()
 
         return self.current_sionna_scene, self._current_scene_antennas_localcrs
 
@@ -467,7 +472,7 @@ class BostonTwin:
         geod = pyproj.Geod(ellps="WGS84")
         lon1, lat1, _ = geod.fwd(center_lon, center_lat, azimuths[0], radius)
         lon2, lat2, _ = geod.fwd(center_lon, center_lat, azimuths[1], radius)
-        bbox = [lon1, lat1, lon2, lat2]
+        bbox = (lon1, lat1, lon2, lat2)
         print("Selecting models within the area...")
         t0 = time.time()
         boston_gdf = gpd.GeoDataFrame.from_file(
@@ -478,9 +483,9 @@ class BostonTwin:
         self.boston_model.generate_scene_from_model_gdf(
             boston_gdf, (center_lon, center_lat), scene_name
         )
-
         if load:
             self.set_scene(scene_name)
+        self.current_scene_gdf = boston_gdf
 
     def export_scene_antennas(self, out_path: Union[Path, str]):
         """Export to file the location (in the local CRS) of the antennas in the current scene.
@@ -596,8 +601,53 @@ class BostonTwin:
         print(f"Writing Collada file to {out_file}")
         mesh.write(out_file)
 
+
     # Static Methods
     @staticmethod
     def translate_gdf(gdf, xoff, yoff):
         gdf["geometry"] = gdf.translate(xoff=xoff, yoff=yoff)
         return gdf
+    
+    # def get_elevation_map(self, resolution=1):
+    def get_elevation_map(
+            self,
+            scene_name: str,
+            center_lon: float,
+            center_lat: float,
+            side_m: float,
+            resolution=1,
+        ):
+
+        self.generate_scene_from_radius(scene_name=scene_name,
+                                   center_lon=center_lon,
+                                   center_lat=center_lat,
+                                   side_m=side_m,
+                                   load=True,
+                                  )
+        self._check_scene()
+
+        bounds = self.current_scene_gdf.total_bounds
+        minx, miny, maxx, maxy = bounds
+
+        # Convert bounds from lat/lon to meters using pyproj
+        transformer = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
+        minx, miny = transformer.transform(minx, miny)
+        maxx, maxy = transformer.transform(maxx, maxy)
+
+        width = int((maxx - minx) / resolution)
+        height = int((maxy - miny) / resolution)
+        
+        transform = rasterio.transform.from_bounds(*bounds, width, height)
+        elevation = np.zeros((height, width), dtype=np.float32)
+        
+        for geom, value in zip(self.current_scene_gdf.geometry, self.current_scene_gdf['Height_Ft']):
+            value_meters = value * 0.3048  # Convert feet to meters
+            rasterize(
+            [(geom, value_meters)],
+            out=elevation,
+            transform=transform,
+            all_touched=True,
+            dtype=np.float32
+            )
+        
+        return elevation
