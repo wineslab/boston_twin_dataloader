@@ -203,7 +203,7 @@ class BostonTwin:
         """
         self.set_scene(scene_name)
 
-        self._load_antennas()
+        # self._load_antennas()
 
         self._generate_node_pos_dict()
 
@@ -442,6 +442,33 @@ class BostonTwin:
 
         nodes_dict = dict(zip(tx_names + rx_names, self.txs + self.rxs))
         return nodes_dict
+    
+    def add_single_tx_antenna(self, tx_name: str = "TX_Center", tx_params: dict = {}):
+        """Add a single transmitter antenna at the center of the current scene.
+
+        Parameters
+        ----------
+        tx_name : str, optional
+            Name of the Transmitter. Defaults to "TX_Center".
+        tx_params : dict, optional
+            Parameters for the Transmitter. Refer to the Sionna Ray Tracer documentation. Defaults to {}.
+
+        Returns
+        -------
+        tx : Transmitter
+            The Transmitter object added to the scene.
+        """
+        self._check_scene()
+
+        center_x = (self.current_scene_gdf.total_bounds[0] + self.current_scene_gdf.total_bounds[2]) / 2
+        center_y = (self.current_scene_gdf.total_bounds[1] + self.current_scene_gdf.total_bounds[3]) / 2
+        antenna_coords = [center_x, center_y, self.node_height]
+
+        tx = Transmitter(tx_name, position=antenna_coords, **tx_params)
+        self.current_sionna_scene.add(tx)
+        self.txs.append(tx)
+
+        return tx
 
     def generate_scene_from_radius(
         self,
@@ -611,19 +638,8 @@ class BostonTwin:
     # def get_elevation_map(self, resolution=1):
     def get_elevation_map(
             self,
-            scene_name: str,
-            center_lon: float,
-            center_lat: float,
-            side_m: float,
             resolution=1,
         ):
-
-        self.generate_scene_from_radius(scene_name=scene_name,
-                                   center_lon=center_lon,
-                                   center_lat=center_lat,
-                                   side_m=side_m,
-                                   load=True,
-                                  )
         self._check_scene()
 
         bounds = self.current_scene_gdf.total_bounds
