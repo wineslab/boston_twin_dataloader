@@ -665,5 +665,4 @@ class BostonTwin:
             all_touched=True,
             dtype=np.float32
             )
-        
         return elevation
