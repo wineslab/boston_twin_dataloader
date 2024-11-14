@@ -34,14 +34,8 @@ bostwin.generate_scene_from_radius(scene_name=new_scene_name,
                                    load=True,
                                   )
                                 
-ele = bostwin.get_elevation_map(resolution=1)
-
-plt.imshow(ele, cmap='viridis', origin='lower')
-plt.colorbar(label='Elevation (m)')
-plt.title('Elevation Map')
-plt.xlabel('X coordinate')
-plt.ylabel('Y coordinate')
-plt.savefig("out.pdf")
+ele = bostwin.get_elevation_map(resolution=5)
+print(ele.shape)
 
 sionna_scene, scene_antennas = bostwin.load_bostontwin(new_scene_name)
 
@@ -64,10 +58,10 @@ cm = sionna_scene.coverage_map(max_depth=1,
                         cm_cell_size=(5., 5.), # Grid size of coverage map cells in m
                         combining_vec=None,
                         precoding_vec=None,
-                        num_samples=int(1e5))
+                        num_samples=int(1e2))
 
-fig = cm.show(metric="path_gain")
-fig.savefig("coverage_map.pdf")
+# extract the actaul coverage map out of the scene. 
+
 
 
 
