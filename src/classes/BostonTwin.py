@@ -638,7 +638,7 @@ class BostonTwin:
     # def get_elevation_map(self, resolution=1):
     def get_elevation_map(
             self,
-            resolution=1,
+            resolution=1
         ):
         self._check_scene()
 
