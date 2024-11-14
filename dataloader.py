@@ -1,60 +1,107 @@
-import os
-gpu_num = "1"  # Use "" to use the CPU
-os.environ["CUDA_VISIBLE_DEVICES"] = f"{gpu_num}"
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
-
-from src.classes.BostonTwin import BostonTwin
-from pathlib import Path
-import matplotlib.pyplot as plt
-from sionna.rt import Transmitter, PlanarArray
+import torch
+from torch.utils.data import Dataset, DataLoader
 import numpy as np
-import time
+import os
 
-dataset_dir = Path("bostontwin")
-bostwin = BostonTwin(dataset_dir)
+class CoverageDataset(Dataset):
+    """
+    PyTorch Dataset for elevation maps and coverage maps.
+    """
 
-new_scene_name = "test" 
-center = [-71.08730583197658, 42.33713805318744]  # center of the scene
-radius = 100 
+    def __init__(self, data_dir, transform=None):
+        """
+        Args:
+            data_dir (str): Path to the dataset directory.
+            transform (callable, optional): Optional transform to be applied
+                on a sample (e.g., normalization, data augmentation).
+        """
+        self.data_dir = data_dir
+        self.transform = transform
 
-bostwin.generate_scene_from_radius(scene_name=new_scene_name,
-                                   center_lon=center[0],
-                                   center_lat=center[1],
-                                   side_m=radius,
-                                   load=True,
-                                  )
-                                
-ele = bostwin.get_elevation_map(resolution=5)
-print(ele.shape)
+        # List all elevation and coverage map files
+        self.elevation_files = sorted(
+            [f for f in os.listdir(data_dir) if f.startswith("elevation_map") and f.endswith(".npy")]
+        )
+        self.coverage_files = sorted(
+            [f for f in os.listdir(data_dir) if f.startswith("coverage_map") and f.endswith(".npy")]
+        )
+        assert len(self.elevation_files) == len(self.coverage_files), (
+            "Mismatch between number of elevation maps and coverage maps"
+        )
 
-sionna_scene, scene_antennas = bostwin.load_bostontwin(new_scene_name)
-sionna_scene.tx_array = PlanarArray(num_rows=1,
-                             num_cols=1,
-                             vertical_spacing=0.5,  # relative to wavelength
-                             horizontal_spacing=0.5,  # relative to wavelength
-                             pattern="iso",
-                             polarization="V")
-sionna_scene.rx_array = sionna_scene.tx_array
-tx0 = Transmitter(name='tx0',
-                  position=[0, 0, 20],  # Center of the scene
-                  orientation=[np.pi*5/6, 0, 0],
-                  power_dbm=44)
-sionna_scene.add(tx0)
+    def __len__(self):
+        """
+        Returns the number of samples in the dataset.
+        """
+        return len(self.elevation_files)
 
+    def __getitem__(self, idx):
+        """
+        Fetch a sample from the dataset.
+        Args:
+            idx (int): Index of the sample to fetch.
 
-start_time = time.time()
-cm = sionna_scene.coverage_map(max_depth=10,
-                        diffraction=True,         # Disable to see the effects of diffraction
-                        cm_cell_size=(5., 5.),    # Grid size of coverage map cells in m
-                        combining_vec=None,
-                        precoding_vec=None,
-                        num_samples=int(1e6)
-                        )
-end_time = time.time()
-print(f"Coverage map generation took {end_time - start_time} seconds")
+        Returns:
+            dict: A dictionary containing 'elevation' and 'coverage' tensors.
+        """
+        # Load elevation and coverage maps
+        elevation_path = os.path.join(self.data_dir, self.elevation_files[idx])
+        coverage_path = os.path.join(self.data_dir, self.coverage_files[idx])
 
+        elevation_map = np.load(elevation_path).astype(np.float32)
+        coverage_map = np.load(coverage_path).astype(np.float32)
 
-path_gain = cm.path_gain.numpy().squeeze()
-print(path_gain.shape)
-fig = cm.show(metric='path_gain')
-plt.savefig('cm_diff.pdf')
+        # Add channel dimension for U-Net compatibility
+        elevation_map = np.expand_dims(elevation_map, axis=0)  # Shape: (1, H, W)
+        coverage_map = np.expand_dims(coverage_map, axis=0)    # Shape: (1, H, W)
+
+        sample = {
+            "elevation": torch.from_numpy(elevation_map),
+            "coverage": torch.from_numpy(coverage_map),
+        }
+
+        # Apply any transformations if provided
+        if self.transform:
+            sample = self.transform(sample)
+
+        return sample
+
+# Define a DataLoader
+def get_dataloader(data_dir, batch_size=16, shuffle=True, num_workers=4, transform=None):
+    """
+    Creates a DataLoader for the dataset.
+    Args:
+        data_dir (str): Path to the dataset directory.
+        batch_size (int): Number of samples per batch.
+        shuffle (bool): Whether to shuffle the data.
+        num_workers (int): Number of subprocesses to use for data loading.
+        transform (callable, optional): Optional transform to be applied on each sample.
+
+    Returns:
+        DataLoader: PyTorch DataLoader instance.
+    """
+    dataset = CoverageDataset(data_dir, transform=transform)
+    dataloader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=num_workers,
+    )
+    return dataloader
+
+# Example Usage
+if __name__ == "__main__":
+    # Path to the directory where the dataset is stored
+    dataset_dir = "training_data"
+    
+    # Get the DataLoader
+    dataloader = get_dataloader(dataset_dir, batch_size=8, shuffle=True, num_workers=2)
+    
+    # Iterate through the DataLoader
+    for batch_idx, batch in enumerate(dataloader):
+        elevation = batch["elevation"]  # Shape: (B, 1, H, W)
+        coverage = batch["coverage"]    # Shape: (B, 1, H, W)
+        print(f"Batch {batch_idx + 1}:")
+        print(f"  Elevation shape: {elevation.shape}")
+        print(f"  Coverage shape: {coverage.shape}")
+        break
