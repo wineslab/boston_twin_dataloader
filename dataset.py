@@ -30,6 +30,14 @@ def generate_scene(bostwin, scene_name, center, radius, resolution=5):
     elevation_map = bostwin.get_elevation_map(resolution=resolution)
     return elevation_map
 
+# Save elevation map visualization
+def save_elevation_map(elevation_map, output_path="elevation_map.pdf"):
+    plt.imshow(elevation_map, cmap='terrain')
+    plt.colorbar(label='Elevation (m)')
+    plt.title('Elevation Map')
+    plt.savefig(output_path)
+    plt.close()
+
 # Configure the scene with transmitters and receivers
 def configure_scene(bostwin, scene_name):
     sionna_scene, _ = bostwin.load_bostontwin(scene_name)
@@ -72,6 +80,7 @@ def generate_coverage_map(sionna_scene, cell_size=(5.0, 5.0), num_samples=int(1e
 def save_coverage_map(coverage_map, output_path="coverage_map.pdf"):
     fig = coverage_map.show(metric="path_gain")
     plt.savefig(output_path)
+    plt.close()
 
 # Generate dataset for training
 def generate_dataset(
@@ -86,13 +95,16 @@ def generate_dataset(
     
     for i in range(num_samples):
         scene_name = f"scene_{i}"
-        center = [np.random.uniform(-71.2, -71.0), np.random.uniform(42.3, 42.4)]
+        center = [np.random.uniform(-71.09, -71.07), np.random.uniform(42.33, 42.34)]
         
         # Generate scene and elevation map
         elevation_map = generate_scene(
             bostwin, scene_name, center, area_radius, resolution=elevation_resolution
         )
         np.save(f"{output_dir}/elevation_map_{i}.npy", elevation_map)
+        
+        # Save elevation map visualization
+        save_elevation_map(elevation_map, f"{output_dir}/elevation_map_{i}.pdf")
         
         # Configure and generate coverage map
         sionna_scene = configure_scene(bostwin, scene_name)
