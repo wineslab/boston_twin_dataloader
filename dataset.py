@@ -1,3 +1,10 @@
+"""
+for generating dataset make sure that the Sionna Cnfig is at the highset as possible. 
+TODO
+1. size of elevation map and covaerage map are not the same 
+2. boundaries are not set at their largest 
+"""
+
 import os
 import time
 from pathlib import Path
