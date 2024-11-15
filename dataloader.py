@@ -30,9 +30,6 @@ class CoverageDataset(Dataset):
         )
 
     def __len__(self):
-        """
-        Returns the number of samples in the dataset.
-        """
         return len(self.elevation_files)
 
     def __getitem__(self, idx):

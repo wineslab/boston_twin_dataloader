@@ -19,7 +19,7 @@ def generate_dataset(
     for i in range(num_samples):
         scene_name: str = f"scene_{i}"
         center: list[float] = [np.random.uniform(-71.09, -71.07),
-                               np.random.uniform(42.33, 42.34)]    # can we find this boundaries from Boston Twin? 
+                               np.random.uniform(42.33, 42.34)]      # can we find this boundaries from Boston Twin? 
 
         # elevation map
         bostwin.generate_scene_from_radius(scene_name=scene_name,
@@ -61,15 +61,17 @@ def generate_dataset(
                                                 )
         path_gain: np.ndarray = coverage_map.path_gain.numpy().squeeze()
         np.save(f"{output_dir}/coverage_map_{i}.npy", path_gain)   
-             
+
         print(f"Sample {i + 1}/{num_samples} generated.")
 
 # Main function
 if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = '1'    # GPU ID 
     os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
+    
     dataset_path = Path("bostontwin")
     bostwin = BostonTwin(dataset_path)
+
     generate_dataset(
         bostwin, 
         num_samples=100, 
